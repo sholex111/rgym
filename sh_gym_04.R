@@ -5,6 +5,9 @@ library(tidyverse)
 library(here)
 library(janitor)
 library(readxl)
+library(openxlsx)
+
+
 library(broom)
 
 df = read_xlsx('Th_An_Test_2.xlsx', sheet = 1, range = "A5:AM34", col_names = FALSE)
@@ -80,10 +83,26 @@ colnames(tidy_model_stats) <-  c("Term", "Estimates")
 
 
 # Combine the two: model summary and detailed result
-combined_model <- rbind(tidy_summary, tidy_model_stats)
+#combined_model <- rbind(tidy_summary, tidy_model_stats)
 
 
+#create and Put the two tables on one excel sheet using openxlsx2 package
+
+# Create a new workbook and add the dataframes as tables
+wb <- createWorkbook()
+
+# Add a worksheet
+addWorksheet(wb, "Sheet1")
+
+# Write df1 to the worksheet
+writeDataTable(wb, sheet = "Sheet1", x = tidy_model_stats, startCol = 1, startRow = 1, tableStyle = "TableStyleMedium9")
+
+# Write df2 to the worksheet, starting two rows below df1
+writeDataTable(wb, sheet = "Sheet1", x = tidy_summary, startCol = ncol(tidy_model_stats) + 3, startRow = 1, tableStyle = "TableStyleMedium9")
+
+# Save the workbook
+saveWorkbook(wb, "lm_summary.xlsx", overwrite = TRUE)
 
 
-
-
+#check the lm_summary file
+lm_summary <- read_excel("lm_summary.xlsx")
