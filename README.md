@@ -18,14 +18,14 @@ install.packages("git2r")
 
 library(git2r)
 
-# Specify the URL of the repository and the destination directory
+Specify the URL of the repository and the destination directory
 repo_url <- "https://github.com/sholex111/rgym.git"
 destination <- "C:/Users/****"
 
-# Clone the repository
+Clone the repository
 repo <- clone(repo_url, destination)
 
-# Verify the cloned repository
+Verify the cloned repository
 print(repo)
 
 
