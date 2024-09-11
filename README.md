@@ -9,3 +9,30 @@ To load git codes into R using R codes,
 library(git2r)
 #load codes into a specified directory
 clone(url = "https://github.com/sholex111/rgym.git", local_path = "copy your folder path here")
+
+
+To load the repo without installing GIT use git2r package
+
+
+install.packages("git2r")
+
+library(git2r)
+
+# Specify the URL of the repository and the destination directory
+repo_url <- "https://github.com/sholex111/rgym.git"
+destination <- "C:/Users/****"
+
+# Clone the repository
+repo <- clone(repo_url, destination)
+
+# Verify the cloned repository
+print(repo)
+
+
+
+
+
+
+
+
+
