@@ -1,0 +1,215 @@
+#####Machine learning with R
+
+# Load necessary libraries
+library(caret)
+library(randomForest)
+library(rpart)
+library(dplyr)
+
+set.seed(123)
+
+# Simulate data: 120 observations, 14 predictor variables (mix of categorical, binary, and continuous)
+n <- 120
+
+# 4 categorical variables (with 4 groups each)
+cat_var1 <- sample(c("A", "B", "C", "D"), n, replace = TRUE)
+cat_var2 <- sample(c("W", "X", "Y", "Z"), n, replace = TRUE)
+
+# 2 binary variables
+bin_var1 <- sample(c(0, 1), n, replace = TRUE)
+bin_var2 <- sample(c(0, 1), n, replace = TRUE)
+
+# 8 continuous variables
+cont_var1 <- rnorm(n, mean = 50, sd = 10)
+cont_var2 <- rnorm(n, mean = 100, sd = 20)
+cont_var3 <- rnorm(n, mean = 75, sd = 15)
+cont_var4 <- rnorm(n, mean = 60, sd = 12)
+cont_var5 <- rnorm(n, mean = 40, sd = 10)
+cont_var6 <- rnorm(n, mean = 80, sd = 18)
+cont_var7 <- rnorm(n, mean = 30, sd = 7)
+cont_var8 <- rnorm(n, mean = 90, sd = 16)
+
+# Binary outcome variable
+outcome <- sample(c(0, 1), n, replace = TRUE)
+
+# Create a data frame
+data <- data.frame(cat_var1, cat_var2, bin_var1, bin_var2, 
+                   cont_var1, cont_var2, cont_var3, cont_var4,
+                   cont_var5, cont_var6, cont_var7, cont_var8,
+                   outcome)
+
+# View first few rows
+head(data)
+
+
+#remove unneeded object
+rm(list = ls(pattern = "^cont"))
+rm(list = ls(pattern = "^bin"))
+rm(list = ls(pattern = "^cat"))
+
+########
+#stage 2
+
+
+# Split the data into train (80%) and test (20%) sets
+set.seed(123)
+trainIndex <- createDataPartition(data$outcome, p = 0.8, list = FALSE)
+trainData <- data[trainIndex, ]
+testData <- data[-trainIndex, ]
+
+
+# #Standardisation and one-hot encoding
+# 
+# continuous_df <- data[, c("age", "income")]
+# categorical_df <- data[, c("gender")]
+# binary_df <- data[, c("is_student")]
+# 
+# # Standardize continuous variables
+# standardized_continuous_df <- scale(continuous_df)
+
+
+# # Convert binary variables to factors to avoid unintended standardization
+# trainData$bin_var1 <- as.factor(trainData$bin_var1)
+# trainData$bin_var2 <- as.factor(trainData$bin_var2)
+# trainData$outcome <- as.factor(trainData$outcome)
+
+
+# testData$bin_var1 <- as.factor(testData$bin_var1)
+# testData$bin_var2 <- as.factor(testData$bin_var2)
+# testData$outcome <- as.factor(testData$outcome)
+
+# Now, the binary variables are of factor type and won't be standardized
+
+
+
+# # Standardize cont_var1
+# preProcValues <- preProcess(trainData, method = c("center", "scale"), 
+#                             select = c("cont_var1","cont_var2","cont_var3","cont_var4",
+#                                        "cont_var5","cont_var6","cont_var7","cont_var8"))
+# trainData <- predict(preProcValues, trainData)
+# testData <- predict(preProcValues, testData)
+
+
+# Manually specify the 'cont' variables
+cont_vars <- c("cont_var1", "cont_var2", "cont_var3", "cont_var4", 
+               "cont_var5", "cont_var6", "cont_var7", "cont_var8")
+
+# Apply preprocessing (center and scale) only to the specified 'cont' variables
+preProcValues <- preProcess(trainData[, cont_vars], method = c("center", "scale"))
+
+# Apply the transformations to both trainData and testData
+trainData[, cont_vars] <- predict(preProcValues, trainData[, cont_vars])
+testData[, cont_vars] <- predict(preProcValues, testData[, cont_vars])
+
+
+# One-hot encode categorical variables
+DummyModel <- dummyVars(" ~ .", data = trainData, fullRank = TRUE)
+trainData <- data.frame(predict(DummyModel, newdata = trainData))
+testData <- data.frame(predict(DummyModel, newdata = testData))
+
+# View the processed data
+head(trainData)
+
+
+
+# Logistic regression model
+log_model <- glm(outcome ~ ., data = trainData, family = binomial)
+
+# Summarize the model
+summary(log_model)
+
+# Predictions on test data
+log_pred <- predict(log_model, newdata = testData, type = "response")
+log_pred_class <- ifelse(log_pred > 0.5, 1, 0)
+
+#create new df with new columns - lo and g_pred and log_pred_class
+testDataNewDf <- data.frame(testData,log_pred, log_pred_class )
+
+
+# Evaluate performance
+confusionMatrix(as.factor(log_pred_class), as.factor(testData$outcome))
+
+# Metrics
+log_train_pred <- predict(log_model, newdata = trainData, type = "response")
+log_train_class <- ifelse(log_train_pred > 0.5, 1, 0)
+
+log_train_accuracy <- mean(log_train_class == trainData$outcome)
+log_test_accuracy <- mean(log_pred_class == testData$outcome)
+
+cat("Logistic Regression - Train Accuracy:", log_train_accuracy, "\n")
+cat("Logistic Regression - Test Accuracy:", log_test_accuracy, "\n")
+
+
+
+# Random Forest model
+rf_model <- randomForest(as.factor(outcome) ~ ., data = trainData, importance = TRUE)
+
+# Variable importance
+importance(rf_model)
+varImpPlot(rf_model)
+
+# Predictions on test data
+rf_pred <- predict(rf_model, newdata = testData, type = "class")
+
+# Evaluate performance
+confusionMatrix(rf_pred, as.factor(testData$outcome))
+
+# Metrics
+rf_train_pred <- predict(rf_model, newdata = trainData, type = "class")
+rf_train_accuracy <- mean(rf_train_pred == trainData$outcome)
+rf_test_accuracy <- mean(rf_pred == testData$outcome)
+
+cat("Random Forest - Train Accuracy:", rf_train_accuracy, "\n")
+cat("Random Forest - Test Accuracy:", rf_test_accuracy, "\n")
+
+
+
+# Decision tree model
+dt_model <- rpart(as.factor(outcome) ~ ., data = trainData, method = "class")
+
+# Plot the tree
+plot(dt_model)
+text(dt_model)
+
+# Predictions on test data
+dt_pred <- predict(dt_model, newdata = testData, type = "class")
+
+# Evaluate performance
+confusionMatrix(dt_pred, as.factor(testData$outcome))
+
+# Metrics
+dt_train_pred <- predict(dt_model, newdata = trainData, type = "class")
+dt_train_accuracy <- mean(dt_train_pred == trainData$outcome)
+dt_test_accuracy <- mean(dt_pred == testData$outcome)
+
+cat("Decision Tree - Train Accuracy:", dt_train_accuracy, "\n")
+cat("Decision Tree - Test Accuracy:", dt_test_accuracy, "\n")
+
+
+
+
+# Create a new dataset (using some values from the original test set)
+new_data <- testData[1:5, ]
+new_data$outcome <- NULL
+
+# Logistic regression prediction
+log_new_pred <- predict(log_model, newdata = new_data, type = "response")
+log_new_pred_class <- ifelse(log_new_pred > 0.5, 1, 0)
+
+# Random Forest prediction
+rf_new_pred <- predict(rf_model, newdata = new_data, type = "prob")
+
+# Decision Tree prediction
+dt_new_pred <- predict(dt_model, newdata = new_data, type = "prob")
+
+# #Compare all the 3 models # Display results
+# FinalOutputPred <- data.frame(New_Data = 1:5,
+#                        Logistic_Pred_Probability = log_new_pred,
+#                        Logistic_Pred_Class = log_new_pred_class,
+#                        Random_Forest_Prob_0 = rf_new_pred[,1],
+#                        Random_Forest_Prob_1 = rf_new_pred[,2],
+#                        Decision_Tree_Prob_0 = dt_new_pred[,1],
+#                        Decision_Tree_Prob_1 = dt_new_pred[,2])
+
+
+
